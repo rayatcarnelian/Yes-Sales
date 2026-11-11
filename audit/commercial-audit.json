@@ -1,0 +1,286 @@
+{
+  "source": "database",
+  "environment": "staging",
+  "database_name": "yes_sales_staging",
+  "status": "completed_with_gaps",
+  "started_at": "2026-11-03T09:13:53.752777+00:00",
+  "finished_at": "2026-11-03T09:13:55.092470+00:00",
+  "reproduction": {
+    "command": "python scripts/run_commercial_audit.py",
+    "working_directory": "E:\\M sales",
+    "database": "yes_sales_staging"
+  },
+  "cases": [
+    {
+      "code": "supplier_import",
+      "title": "Import a valid supplier record",
+      "status": "passed",
+      "executed_at": "2026-11-03T09:13:54.518617+00:00",
+      "evidence": {
+        "company_id": "f8d3da99-b7e4-4047-80ab-9a7bf0551427",
+        "method": "manual_source",
+        "provider_mode": "live",
+        "external_registry_contacted": false
+      },
+      "failure_reason": null
+    },
+    {
+      "code": "identifier_mismatch",
+      "title": "Reject an incorrectly matched company identifier",
+      "status": "passed",
+      "executed_at": "2026-11-03T09:13:54.526093+00:00",
+      "evidence": {
+        "status_code": 422,
+        "accepted": false
+      },
+      "failure_reason": null
+    },
+    {
+      "code": "superseded_research",
+      "title": "Reject superseded research data",
+      "status": "passed",
+      "executed_at": "2026-11-03T09:13:54.536824+00:00",
+      "evidence": {
+        "status_code": 409,
+        "accepted": false
+      },
+      "failure_reason": null
+    },
+    {
+      "code": "buyer_import",
+      "title": "Import a verified buyer prospect",
+      "status": "passed",
+      "executed_at": "2026-11-03T09:13:54.666357+00:00",
+      "evidence": {
+        "company_id": "f883c75d-8c09-465b-9630-547530c19527",
+        "verification_status": "verified"
+      },
+      "failure_reason": null
+    },
+    {
+      "code": "buyer_requirement",
+      "title": "Create a buyer requirement",
+      "status": "passed",
+      "executed_at": "2026-11-03T09:13:54.684311+00:00",
+      "evidence": {
+        "requirement_id": "d6ef5cc5-6d37-436d-96f2-28641f03e93b"
+      },
+      "failure_reason": null
+    },
+    {
+      "code": "compatible_supplier",
+      "title": "Find a product-compatible supplier",
+      "status": "passed",
+      "executed_at": "2026-11-03T09:13:54.707528+00:00",
+      "evidence": {
+        "supplier_ids": [
+          "f8d3da99-b7e4-4047-80ab-9a7bf0551427"
+        ],
+        "product_status": 201
+      },
+      "failure_reason": null
+    },
+    {
+      "code": "potential_match",
+      "title": "Generate a potential match",
+      "status": "passed",
+      "executed_at": "2026-11-03T09:13:54.803118+00:00",
+      "evidence": {
+        "match_id": "61fdea58-9f84-4bc3-ac2e-756fbe5ad4ae",
+        "matched": [
+          "category",
+          "origin_destination",
+          "certifications",
+          "currency",
+          "unit_price_present"
+        ],
+        "missing": [
+          "moq_versus_quantity",
+          "capacity",
+          "lead_time",
+          "delivery_terms",
+          "incoterms",
+          "documentation"
+        ],
+        "landed_cost_present": false,
+        "sequence_note": "The quotation is stored before the match because a match requires a stored offer."
+      },
+      "failure_reason": null
+    },
+    {
+      "code": "rfq",
+      "title": "Create an RFQ",
+      "status": "passed",
+      "executed_at": "2026-11-03T09:13:54.738988+00:00",
+      "evidence": {
+        "rfq_id": "bfe05a3b-262f-439d-9878-7033e9107992"
+      },
+      "failure_reason": null
+    },
+    {
+      "code": "quotation",
+      "title": "Record a supplier quotation",
+      "status": "passed",
+      "executed_at": "2026-11-03T09:13:54.777896+00:00",
+      "evidence": {
+        "offer_id": "f6bb3a31-699f-46f6-bb33-211dcdbfb2e4",
+        "version": 1
+      },
+      "failure_reason": null
+    },
+    {
+      "code": "founder_approval",
+      "title": "Route a binding decision for founder approval",
+      "status": "passed",
+      "executed_at": "2026-11-03T09:13:54.866064+00:00",
+      "evidence": {
+        "approval_id": "0caa20e9-45f9-4a81-9840-05412889a674",
+        "status": "pending",
+        "executed": false,
+        "operator_decide_status": 403
+      },
+      "failure_reason": null
+    },
+    {
+      "code": "inbound_email",
+      "title": "Process a controlled inbound email",
+      "status": "mocked",
+      "executed_at": "2026-11-03T09:13:54.889127+00:00",
+      "evidence": {
+        "message_id": "aa1264ad-c493-48bd-8572-c6e53b96bf9d",
+        "conversation_id": "b0acfa20-9626-4dd1-8c38-ebca0ea548f3",
+        "provider_mode": "mock",
+        "mailbox_contacted": false
+      },
+      "failure_reason": "The webhook stored the message, but provider_mode is mock. No mailbox was contacted, so this is not a pass."
+    },
+    {
+      "code": "phone_call",
+      "title": "Process a controlled test phone call",
+      "status": "skipped",
+      "executed_at": "2026-11-03T09:13:55.014283+00:00",
+      "evidence": {
+        "credentials_present": false,
+        "placed": false,
+        "live_call_verified": false
+      },
+      "failure_reason": "Twilio or xAI credentials are absent. No call was placed, and the mock session was not counted as a pass."
+    },
+    {
+      "code": "handoff",
+      "title": "Record communications and handoffs",
+      "status": "passed",
+      "executed_at": "2026-11-03T09:13:54.903671+00:00",
+      "evidence": {
+        "conversation_id": "b0acfa20-9626-4dd1-8c38-ebca0ea548f3",
+        "status": "handoff",
+        "call_placed": false
+      },
+      "failure_reason": null
+    },
+    {
+      "code": "opt_out_pause",
+      "title": "Enforce opt-outs and the global pause",
+      "status": "passed",
+      "executed_at": "2026-11-03T09:13:55.014258+00:00",
+      "evidence": {
+        "opt_out_status": 200,
+        "follow_up_status": 403,
+        "paused_status": 409
+      },
+      "failure_reason": null
+    },
+    {
+      "code": "budget_limit",
+      "title": "Reject jobs that exceed approved budget limits",
+      "status": "passed",
+      "executed_at": "2026-11-03T09:13:55.059969+00:00",
+      "evidence": {
+        "task_status": "dead",
+        "last_error": "Provider budget ceiling would be exceeded.",
+        "ceiling_usd": "1",
+        "attempted_cost_usd": "2"
+      },
+      "failure_reason": null
+    }
+  ],
+  "summary": {
+    "environment": "staging",
+    "database_name": "yes_sales_staging",
+    "tested_capabilities": [
+      "Import a valid supplier record",
+      "Reject an incorrectly matched company identifier",
+      "Reject superseded research data",
+      "Import a verified buyer prospect",
+      "Create a buyer requirement",
+      "Find a product-compatible supplier",
+      "Generate a potential match",
+      "Create an RFQ",
+      "Record a supplier quotation",
+      "Route a binding decision for founder approval",
+      "Record communications and handoffs",
+      "Enforce opt-outs and the global pause",
+      "Reject jobs that exceed approved budget limits"
+    ],
+    "untested_capabilities": [
+      "Process a controlled inbound email",
+      "Process a controlled test phone call",
+      "Live SMTP delivery",
+      "xAI classification against a live model",
+      "WhatsApp",
+      "Grok Bot"
+    ],
+    "passed_tests": [
+      "supplier_import",
+      "identifier_mismatch",
+      "superseded_research",
+      "buyer_import",
+      "buyer_requirement",
+      "compatible_supplier",
+      "potential_match",
+      "rfq",
+      "quotation",
+      "founder_approval",
+      "handoff",
+      "opt_out_pause",
+      "budget_limit"
+    ],
+    "failed_tests": [],
+    "mocked_tests": [
+      "inbound_email"
+    ],
+    "skipped_tests": [
+      "phone_call"
+    ],
+    "research_accuracy": {
+      "claims_checked": 3,
+      "controls_passed": 3,
+      "incorrectly_accepted": 0,
+      "ratio": "1.0000",
+      "note": "The ratio counts these audit controls. It is not an accuracy score for external factory records."
+    },
+    "qualified_sales_opportunities": 1,
+    "rfqs": 1,
+    "human_intervention": {
+      "seconds": null,
+      "decisions_measured": 0,
+      "reason": "No founder decision was recorded. Pending approvals have no interval, so human intervention time was not measured."
+    },
+    "per_agent_cost_usd": {
+      "unattributed": "0.000000"
+    },
+    "commission_status": [
+      {
+        "collection_status": "none_recorded",
+        "count": 0
+      }
+    ],
+    "pending_approvals": 1,
+    "alex_outcomes": {
+      "rows": 3,
+      "comparable_pairs": 0,
+      "note": "Comparable is true only for a live model send that a person also decided. Mock and skipped work is stored and is not comparable."
+    }
+  },
+  "run_id": "5ecbe47e-077c-4237-9464-c1edf86174b4"
+}

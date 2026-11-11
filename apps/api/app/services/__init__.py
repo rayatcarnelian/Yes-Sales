@@ -1,0 +1,1 @@
+"""YES SALES domain services."""

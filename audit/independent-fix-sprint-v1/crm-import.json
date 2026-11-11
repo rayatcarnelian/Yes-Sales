@@ -1,0 +1,107 @@
+{
+  "outbound_enabled": false,
+  "grok_bot": "not_configured",
+  "grok_connected": false,
+  "grok_credit_control": "none",
+  "import_count": 5,
+  "accepted": [
+    {
+      "task_id": "YS-TEST-REVIEW-HUNTER",
+      "company": "TEST Review Atlas Mill",
+      "company_id": "f660f496-2e98-4369-9430-676d8d77b567",
+      "import_status": "accepted",
+      "stored_verification_status": "unverified",
+      "evidence_status": "held",
+      "claim_downgraded": true,
+      "stored_as_research_source": false,
+      "evidence_excerpt": null
+    },
+    {
+      "task_id": "YS-TEST-REVIEW-HUNTER",
+      "company": "TEST Review Atlas Dye House",
+      "company_id": "d5dc012a-f9fa-4d79-948d-6935080f07e7",
+      "import_status": "accepted",
+      "stored_verification_status": "unverified",
+      "evidence_status": "held",
+      "claim_downgraded": true,
+      "stored_as_research_source": false,
+      "evidence_excerpt": null
+    },
+    {
+      "task_id": "YS-TEST-REVIEW-HARBOR",
+      "company": "TEST Review Harbor Buyer",
+      "company_id": "4da2468d-7202-478f-bdb6-a751103702c1",
+      "import_status": "accepted",
+      "stored_verification_status": "unverified",
+      "evidence_status": "held",
+      "claim_downgraded": true,
+      "stored_as_research_source": false,
+      "evidence_excerpt": null
+    },
+    {
+      "task_id": "YS-TEST-REVIEW-PENANG",
+      "company": "TEST Review Penang Loom",
+      "company_id": "3dcfd04b-9a6e-4d45-9b39-ba9200ea11ff",
+      "import_status": "accepted",
+      "stored_verification_status": "unverified",
+      "evidence_status": "held",
+      "claim_downgraded": true,
+      "stored_as_research_source": false,
+      "evidence_excerpt": null
+    },
+    {
+      "task_id": "YS-TEST-REVIEW-OSAKA",
+      "company": "TEST Review Osaka Desk",
+      "company_id": "ce431e66-408d-44f6-a41b-ff1eecc37c0a",
+      "import_status": "accepted",
+      "stored_verification_status": "unverified",
+      "evidence_status": "held",
+      "claim_downgraded": true,
+      "stored_as_research_source": false,
+      "evidence_excerpt": null
+    }
+  ],
+  "retry_all_replays": true,
+  "crm": [
+    {
+      "id": "d5dc012a-f9fa-4d79-948d-6935080f07e7",
+      "legal_name": "TEST Review Atlas Dye House",
+      "country": "BD",
+      "role": "supplier",
+      "verification_status": "unverified",
+      "source_count": 0
+    },
+    {
+      "id": "f660f496-2e98-4369-9430-676d8d77b567",
+      "legal_name": "TEST Review Atlas Mill",
+      "country": "BD",
+      "role": "supplier",
+      "verification_status": "unverified",
+      "source_count": 0
+    },
+    {
+      "id": "4da2468d-7202-478f-bdb6-a751103702c1",
+      "legal_name": "TEST Review Harbor Buyer",
+      "country": "DE",
+      "role": "buyer",
+      "verification_status": "unverified",
+      "source_count": 0
+    },
+    {
+      "id": "ce431e66-408d-44f6-a41b-ff1eecc37c0a",
+      "legal_name": "TEST Review Osaka Desk",
+      "country": "JP",
+      "role": "buyer",
+      "verification_status": "unverified",
+      "source_count": 0
+    },
+    {
+      "id": "3dcfd04b-9a6e-4d45-9b39-ba9200ea11ff",
+      "legal_name": "TEST Review Penang Loom",
+      "country": "MY",
+      "role": "supplier",
+      "verification_status": "unverified",
+      "source_count": 0
+    }
+  ]
+}

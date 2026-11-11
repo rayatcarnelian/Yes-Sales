@@ -1,0 +1,64 @@
+{
+  "records": [
+    {
+      "agent_name": "bengal",
+      "task_id": "YS-TEST-BOT-001",
+      "company_identity": "TEST Bot Knit Mill",
+      "company_type": "supplier",
+      "country": "BD",
+      "product_category": "knitwear",
+      "source_urls": ["https://example.com/test-bot-knit-mill"],
+      "verification_date": "2026-11-02",
+      "verification_status": "VERIFIED",
+      "contact_eligibility": "eligible",
+      "source_document_reference": "samples/grok-bot-import.example.json",
+      "source_excerpt": "Company: TEST Bot Knit Mill\nCountry: BD\nCategory: knitwear",
+      "import_status": "ready"
+    },
+    {
+      "agent_name": "bengal",
+      "task_id": "YS-TEST-BOT-001",
+      "company_identity": "TEST Bot Dye House",
+      "company_type": "supplier",
+      "country": "BD",
+      "product_category": "knitwear",
+      "source_urls": ["https://example.com/test-bot-dye-house"],
+      "verification_date": "2026-11-02",
+      "verification_status": "VERIFIED",
+      "contact_eligibility": "unknown",
+      "source_document_reference": "samples/grok-bot-import.example.json",
+      "source_excerpt": "Company: TEST Bot Dye House\nCountry: BD\nCategory: knitwear",
+      "import_status": "ready"
+    },
+    {
+      "agent_name": "bengal",
+      "task_id": "YS-TEST-BOT-002",
+      "company_identity": "TEST Bot Quarantine Mill",
+      "company_type": "supplier",
+      "country": "BD",
+      "product_category": "knitwear",
+      "source_urls": ["https://example.com/test-bot-quarantine-mill"],
+      "verification_date": "2026-11-02",
+      "verification_status": "verified",
+      "contact_eligibility": "eligible",
+      "source_document_reference": "samples/grok-bot-import.example.json",
+      "source_excerpt": "Company: TEST Bot Quarantine Mill\nCountry: BD\nCategory: knitwear",
+      "import_status": "quarantined"
+    },
+    {
+      "agent_name": "bengal",
+      "task_id": "YS-TEST-BOT-003",
+      "company_identity": "TEST Bot Old Mill",
+      "company_type": "supplier",
+      "country": "BD",
+      "product_category": "knitwear",
+      "source_urls": ["https://example.com/test-bot-old-mill"],
+      "verification_date": "2026-10-01",
+      "verification_status": "unverified",
+      "contact_eligibility": "unknown",
+      "source_document_reference": "samples/grok-bot-import.example.json",
+      "source_excerpt": "Company: TEST Bot Old Mill\nCountry: BD\nCategory: knitwear",
+      "import_status": "superseded"
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #f3efe6;
+  --surface: #fffcf7;
+  --ink: #1b1914;
+  --muted: #6d675e;
+  --line: #e3dbcf;
+  --accent: #0f5c56;
+  --accent-ink: #f7fffd;
+  --danger: #8d2f2f;
+  --ok: #1d6b45;
+  --sidebar: #12211e;
+  --sidebar-ink: #f6f1e8;
+  --gold: #a68456;
+}
+
+.dark {
+  --bg: #101412;
+  --surface: #181d1b;
+  --ink: #f4efe6;
+  --muted: #b7b1a6;
+  --line: #2c3330;
+  --accent: #8ed0c8;
+  --accent-ink: #10211f;
+  --danger: #e08a8a;
+  --ok: #8dcea8;
+  --sidebar: #0b0f0e;
+  --sidebar-ink: #f4efe6;
+  --gold: #d4b483;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+input, select, textarea {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  padding: 0.55rem 0.7rem;
+  width: 100%;
+}
+
+button {
+  border-radius: 999px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  text-align: left;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+th, td {
+  border-bottom: 1px solid var(--line);
+  padding: 0.75rem 0.4rem;
+  vertical-align: top;
+}

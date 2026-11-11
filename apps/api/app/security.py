@@ -1,0 +1,110 @@
+import hashlib
+import hmac
+import os
+import uuid
+from datetime import UTC, datetime, timedelta
+
+import jwt
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.config import get_settings
+from app.errors import DomainError
+
+PBKDF2_ROUNDS = 200_000
+
+
+def hash_password(password: str, salt: bytes | None = None) -> str:
+    salt = salt or os.urandom(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, PBKDF2_ROUNDS)
+    return f"pbkdf2_sha256${PBKDF2_ROUNDS}${salt.hex()}${digest.hex()}"
+
+
+def verify_password(password: str, stored: str) -> bool:
+    try:
+        algorithm, rounds_text, salt_hex, digest_hex = stored.split("$", 3)
+        if algorithm != "pbkdf2_sha256":
+            return False
+        salt = bytes.fromhex(salt_hex)
+        digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, int(rounds_text))
+        return hmac.compare_digest(digest.hex(), digest_hex)
+    except (ValueError, TypeError):
+        return False
+
+
+def create_token(user_id: uuid.UUID, email: str, role: str) -> str:
+    settings = get_settings()
+    payload = {
+        "sub": str(user_id),
+        "email": email,
+        "role": role,
+        "iss": "yes-sales-local",
+        "exp": datetime.now(UTC) + timedelta(minutes=settings.jwt_ttl_minutes),
+    }
+    return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
+
+
+def decode_token(token: str) -> dict:
+    settings = get_settings()
+    try:
+        local = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"], options={"verify_aud": False})
+        if local.get("iss") == "yes-sales-local":
+            return local
+    except jwt.PyJWTError:
+        local = None
+    if settings.supabase_jwt_secret:
+        try:
+            return jwt.decode(
+                token,
+                settings.supabase_jwt_secret,
+                algorithms=["HS256"],
+                audience="authenticated",
+            )
+        except jwt.PyJWTError as exc:
+            raise DomainError(401, "invalid_token", "Authentication token is invalid.") from exc
+    if local is None:
+        raise DomainError(401, "invalid_token", "Authentication token is invalid.")
+    return local
+
+
+def sign_webhook(body: bytes) -> str:
+    secret = get_settings().webhook_secret.encode()
+    return hmac.new(secret, body, hashlib.sha256).hexdigest()
+
+
+def webhook_signature_valid(body: bytes, signature: str | None) -> bool:
+    if not signature:
+        return False
+    expected = sign_webhook(body)
+    return hmac.compare_digest(expected, signature.strip())
+
+
+def twilio_signature_valid(url: str, params: dict[str, str], signature: str | None) -> bool:
+    token = get_settings().twilio_auth_token
+    if not token or not signature:
+        return False
+    material = url + "".join(key + params[key] for key in sorted(params))
+    digest = hmac.new(token.encode(), material.encode(), hashlib.sha1).digest()
+    import base64
+
+    expected = base64.b64encode(digest).decode()
+    return hmac.compare_digest(expected, signature)
+
+
+def load_user(session: Session, user_id: str):
+    from app.models import User
+
+    try:
+        parsed = uuid.UUID(user_id)
+    except ValueError as exc:
+        raise DomainError(401, "invalid_token", "Authentication token is invalid.") from exc
+    user = session.get(User, parsed)
+    if user is None or not user.is_active:
+        raise DomainError(401, "invalid_token", "Authentication token is invalid.")
+    return user
+
+
+def load_user_by_email(session: Session, email: str):
+    from app.models import User
+
+    return session.scalar(select(User).where(User.email == email.lower()))

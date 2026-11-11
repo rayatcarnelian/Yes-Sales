@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: yes
+      POSTGRES_PASSWORD: yes
+      POSTGRES_DB: yes_sales
+    ports:
+      - "5432:5432"
+    volumes:
+      - yes_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yes -d yes_sales"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+
+  voice:
+    build:
+      context: .
+      dockerfile: apps/voice/Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      - api
+    ports:
+      - "3001:3001"
+
+volumes:
+  yes_pg:
