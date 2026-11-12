@@ -20,7 +20,7 @@ from app.models import (
     User,
 )
 from app.schemas import ApprovalIn
-from app.services.common import classify_text, require
+from app.services.common import MODEL_CALL_USD, classify_text, record_usage, require, require_model_budget
 from app.services.comms import _open_conversation, outbound_block_reason, public_message, release_draft_message
 
 LIMITATIONS = [
@@ -31,16 +31,17 @@ LIMITATIONS = [
 ]
 
 
-def classify_message(body: str) -> dict:
+def classify_message(body: str, session: Session | None = None) -> dict:
     settings = get_settings()
     label = classify_text(body)
-    if not settings.xai_api_key:
+    if not settings.xai_api_key or session is None:
         return {
             "classification": label,
             "provider_mode": "not_configured",
             "method": "deterministic",
             "live_model_called": False,
         }
+    require_model_budget(session, MODEL_CALL_USD)
     try:
         model_label = _classify_with_xai(body)
     except (DomainError, httpx.HTTPError, json.JSONDecodeError):
@@ -52,6 +53,7 @@ def classify_message(body: str) -> dict:
         }
     if model_label not in {"opt_out", "human_handoff", "callback_request", "commercial", "general"}:
         model_label = label
+    record_usage(session, "xai", "live", "alex.classify", MODEL_CALL_USD)
     return {
         "classification": model_label,
         "provider_mode": "live",
@@ -191,7 +193,7 @@ def draft_reply(session: Session, actor: User, contact_id: uuid.UUID, inbound: s
     contact = require(session, Contact, contact_id, "Contact")
     if contact.channel != "email":
         raise DomainError(422, "unsupported_channel", "Alex drafts email. Phone calls use the voice gateway.")
-    classified = classify_message(inbound)
+    classified = classify_message(inbound, session)
     if classified["classification"] == "opt_out":
         from app.services.comms import persist_opt_out
 

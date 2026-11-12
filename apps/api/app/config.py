@@ -1,5 +1,7 @@
+import os
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import urlparse
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -13,7 +15,7 @@ def repo_root() -> Path:
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=str(repo_root() / ".env"), extra="ignore")
 
     database_url: str = "postgresql+psycopg://yes_app:yes_app@127.0.0.1:5432/yes_sales"
     admin_database_url: str = "postgresql+psycopg://yes:yes@127.0.0.1:5432/yes_sales"
@@ -47,7 +49,10 @@ class Settings(BaseSettings):
     dev_founder_password: str = "change-me-founder"
     dev_operator_email: str = "operator@yes-sales.test"
     dev_operator_password: str = "change-me-operator"
-    production_secret_guard: bool = False
+    # Public deployment is the default. Local and test must opt in.
+    yes_sales_env: str = "production"
+    # Stays false. A process-local login limit is not a public release control.
+    yes_sales_public_release: bool = False
 
     @property
     def cors_origin_list(self) -> list[str]:
@@ -58,14 +63,25 @@ class Settings(BaseSettings):
         return bool(self.outbound_enabled and self.smtp_host and self.smtp_from)
 
     @property
+    def environment(self) -> str:
+        return self.yes_sales_env.strip().lower()
+
+    @property
+    def is_local_runtime(self) -> bool:
+        return self.environment in {"local", "test"}
+
+    @property
     def llm_mode(self) -> str:
-        return "live" if self.xai_api_key else "not_configured"
+        # A saved key is not evidence that a model call succeeded.
+        return "configured_unverified" if self.xai_api_key else "not_configured"
+
+    @property
+    def voice_configured(self) -> bool:
+        return bool(self.xai_api_key and self.twilio_auth_token and self.twilio_phone_number)
 
     @property
     def voice_mode(self) -> str:
-        if self.xai_api_key and self.twilio_auth_token and self.twilio_phone_number:
-            return "live"
-        return "mock"
+        return "configured_unverified" if self.voice_configured else "mock"
 
 
 @lru_cache
@@ -84,10 +100,32 @@ _LOCAL_DEFAULTS = {
 }
 
 
+def _origin_is_loopback(origin: str) -> bool:
+    host = (urlparse(origin).hostname or "").lower()
+    return host in {"localhost", "127.0.0.1", "::1"}
+
+
+def _worker_count() -> int:
+    counts = []
+    for name in ("WEB_CONCURRENCY", "UVICORN_WORKERS"):
+        raw = os.environ.get(name, "").strip()
+        if raw.isdigit():
+            counts.append(int(raw))
+    return max(counts, default=1)
+
+
 def enforce_production_secrets() -> None:
-    """Refuse local passwords when the production flag is on. The flag defaults off."""
+    """Refuse known local secrets unless this process is explicitly local or test.
+
+    Local and test must keep browser origins on loopback. Production cannot
+    opt into a public release while the login limit is stored in one process.
+    PRODUCTION_SECRET_GUARD is not a bypass.
+    """
     settings = get_settings()
-    if not settings.production_secret_guard:
+    if settings.is_local_runtime:
+        public = [origin for origin in settings.cors_origin_list if not _origin_is_loopback(origin)]
+        if public or not settings.cors_origin_list:
+            raise RuntimeError("local_runtime refused a public CORS origin")
         return
     failures: list[str] = []
     for name, default in _LOCAL_DEFAULTS.items():
@@ -97,6 +135,15 @@ def enforce_production_secrets() -> None:
         value = getattr(settings, name)
         if "yes:yes@" in value or "yes_app:yes_app@" in value:
             failures.append(name)
+    for name in ("jwt_secret", "webhook_secret", "scheduler_token", "voice_gateway_token"):
+        if len(getattr(settings, name).strip()) < 32:
+            failures.append(name)
+    if "*" in settings.cors_origin_list or not settings.cors_origin_list:
+        failures.append("cors_origins")
+    if settings.yes_sales_public_release:
+        failures.append("public_release")
+    if _worker_count() > 1:
+        failures.append("worker_count")
     if failures:
         names = ", ".join(sorted(set(failures)))
-        raise RuntimeError(f"production_secret_guard refused local defaults: {names}")
+        raise RuntimeError(f"insecure_deployment refused local defaults: {names}")

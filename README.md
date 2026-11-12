@@ -6,7 +6,7 @@ The sales floor is Atlas, Orion, Bengal, Meridian, Hunter, Guard, Alex, and Ledg
 
 ## Run locally
 
-PostgreSQL must be listening on port 5432. Copy `.env.example` to `.env` and leave the live keys blank until you have them.
+PostgreSQL must be listening on port 5432. Copy `.env.local.example` to `.env` for this machine. `.env.example` is the production sample and will refuse to start on the sample passwords. Docker Compose publishes its ports on 127.0.0.1 only.
 
 ```text
 apps/api:  .venv\Scripts\python.exe -m uvicorn app.main:app --app-dir apps/api --host 127.0.0.1 --port 8000
@@ -15,7 +15,7 @@ apps/web:  npm run dev -- --port 3000
 
 Open http://localhost:3000 and sign in with the local founder shown on the login page.
 
-`PRODUCTION_SECRET_GUARD` stays false on this machine. Turn it on only after every local password has been replaced.
+`.env` must set `YES_SALES_ENV=local` on this machine. A process without that setting is treated as production and will not start on the built-in passwords.
 
 ## Tests
 

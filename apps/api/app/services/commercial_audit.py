@@ -466,7 +466,7 @@ def _run_cases(client, headers: dict, operator: dict, cases: list[dict]) -> None
     )
 
     settings = get_settings()
-    if settings.voice_mode == "live":
+    if settings.voice_configured:
         _record(
             cases,
             "phone_call",

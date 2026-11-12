@@ -1,4 +1,3 @@
-import hmac
 import json
 import uuid
 
@@ -50,7 +49,17 @@ from app.schemas import (
     UserIn,
     VerificationIn,
 )
-from app.security import create_token, hash_password, verify_password, webhook_signature_valid
+from app.security import (
+    DUMMY_PASSWORD_HASH,
+    clear_login_failures,
+    create_token,
+    hash_password,
+    login_is_limited,
+    record_login_failure,
+    secret_matches,
+    verify_password,
+    webhook_signature_valid,
+)
 from app.services import alex, bot_import, commercial, commercial_audit, comms, crm, files, job_cards, orchestration, pipeline, research, sales_team
 from app.services.common import public_settings, public_user, settings_row, spent_usd
 from app.audit import audit
@@ -66,12 +75,22 @@ def health() -> dict:
 
 
 @router.post("/auth/login")
-def login(body: LoginIn) -> dict:
+def login(body: LoginIn, request: Request) -> dict:
+    email = body.email.strip().lower()
+    host = request.client.host if request.client else "unknown"
+    bucket = f"{email}|{host}"
+    limited = get_settings().environment == "production" and login_is_limited(bucket)
+    if limited:
+        raise DomainError(429, "login_limited", "Too many sign-in attempts. Wait and try again.")
     with admin_sessionmaker()() as session:
-        user = session.scalar(select(User).where(User.email == body.email.strip().lower()))
+        user = session.scalar(select(User).where(User.email == email))
         credential = None if user is None else session.get(UserCredential, user.id)
-        if user is None or credential is None or not user.is_active or not verify_password(body.password, credential.password_hash):
+        password_ok = verify_password(body.password, credential.password_hash) if credential is not None else verify_password(body.password, DUMMY_PASSWORD_HASH)
+        if user is None or credential is None or not user.is_active or not password_ok:
+            if get_settings().environment == "production":
+                record_login_failure(bucket)
             raise DomainError(401, "invalid_login", "Email or password is incorrect.")
+        clear_login_failures(bucket)
         audit(session, user, "auth.login", "user", user.id, {})
         session.commit()
         return {"access_token": create_token(user.id, user.email, user.role), "token_type": "bearer", "user": public_user(user)}
@@ -183,7 +202,7 @@ async def grok_bot_ingest(request: Request, x_grok_bot_token: str | None = Heade
     supplied = (x_grok_bot_token or "").strip()
     if not configured:
         raise DomainError(503, "grok_bot_not_configured", "Set GROK_BOT_TOKEN before a Grok bot can post here. This door stays closed until then.")
-    if len(supplied) != len(configured) or not hmac.compare_digest(supplied, configured):
+    if not secret_matches(supplied, configured):
         raise DomainError(401, "invalid_token", "Grok bot token is invalid.")
     try:
         payload = await request.json()
@@ -289,9 +308,9 @@ def contact_context(contact_id: uuid.UUID, session: Session = Depends(get_db)) -
 
 
 @router.post("/alex/classify")
-def classify_note(body: ClassifyIn, user: User = Depends(get_current_user)) -> dict:
+def classify_note(body: ClassifyIn, session: Session = Depends(get_db), user: User = Depends(get_current_user)) -> dict:
     del user
-    return alex.classify_message(body.body)
+    return alex.classify_message(body.body, session)
 
 
 @router.post("/alex/drafts", status_code=201)
@@ -544,7 +563,7 @@ def list_calls(session: Session = Depends(get_db)) -> dict:
 @router.post("/internal/calls", status_code=201)
 async def gateway_call(request: Request, x_voice_token: str | None = Header(default=None)) -> dict:
     expected = get_settings().voice_gateway_token
-    if not x_voice_token or not hmac.compare_digest(x_voice_token, expected):
+    if not secret_matches(x_voice_token, expected):
         raise DomainError(401, "invalid_token", "Voice gateway token is invalid.")
     payload = await request.json()
     session = system_session()
@@ -633,7 +652,7 @@ def create_task(body: TaskIn, session: Session = Depends(get_db), user: User = D
 @router.post("/tasks/external", status_code=201)
 async def external_task(request: Request, x_scheduler_token: str | None = Header(default=None)) -> dict:
     expected = get_settings().scheduler_token
-    if not x_scheduler_token or not hmac.compare_digest(x_scheduler_token, expected):
+    if not secret_matches(x_scheduler_token, expected):
         raise DomainError(401, "invalid_token", "Scheduler token is invalid.")
     payload = await request.json()
     session = system_session()

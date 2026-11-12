@@ -1,3 +1,5 @@
+# Local Compose only. Every published port is bound to loopback.
+# Copy .env.local.example to .env for this machine. Do not publish these ports on 0.0.0.0.
 services:
   postgres:
     image: postgres:16
@@ -6,7 +8,7 @@ services:
       POSTGRES_PASSWORD: yes
       POSTGRES_DB: yes_sales
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - yes_pg:/var/lib/postgresql/data
     healthcheck:
@@ -25,7 +27,7 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
 
   web:
     build:
@@ -36,7 +38,7 @@ services:
     depends_on:
       - api
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
 
   voice:
     build:
@@ -47,7 +49,7 @@ services:
     depends_on:
       - api
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
 
 volumes:
   yes_pg:
