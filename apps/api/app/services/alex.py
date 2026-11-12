@@ -54,7 +54,7 @@ def classify_message(body: str) -> dict:
         model_label = label
     return {
         "classification": model_label,
-        "provider_mode": "live",
+        "provider_mode": "model_called",
         "method": "xai",
         "live_model_called": True,
     }

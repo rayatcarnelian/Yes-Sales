@@ -236,11 +236,11 @@ def extract_source(session: Session, actor: User, source_id, client: httpx.Clien
         close_client = client is None
         try:
             fields = call_xai(source.excerpt, http)
-            record_usage(session, "xai", "live", "research.extract", 0)
+            record_usage(session, "xai", "model_called", "research.extract", 0)
         finally:
             if close_client:
                 http.close()
-        mode = "live"
+        mode = "model_called"
     else:
         fields = parse_evidence(source.excerpt)
         record_usage(session, "evidence-parser", "not_configured", "research.extract", 0)

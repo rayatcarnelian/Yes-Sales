@@ -142,9 +142,9 @@ export default function AgentsPage() {
             <button className="bg-accent px-4 py-2 text-sm text-[var(--accent-ink)]" type="button" onClick={() => pauseJobs(true)}>Pause app jobs</button>
             <button className="border border-line px-4 py-2 text-sm" type="button" onClick={() => pauseJobs(false)}>Resume app jobs</button>
           </div>
-          <p className="mt-4 text-sm">Grok model: {integrations.grok_connected ? "connected" : "not connected"}</p>
+          <p className="mt-4 text-sm">Grok model: {integrations.grok_connected ? "key saved, not verified" : "not configured"}</p>
           <p className="text-sm text-muted">
-            Bot post door: {String(integrations.grok_bot_ingest || "not_configured")}. Credit control: {String(integrations.grok_credit_control || "none")}. A connected model still cannot pause Grok or spend its credits from this desk.
+            Bot post door: {String(integrations.grok_bot_ingest || "not_configured")}. Credit control: {String(integrations.grok_credit_control || "none")}. A saved key is not a completed model call, and this desk cannot pause Grok or spend its credits.
           </p>
           <p className="mt-3 text-sm text-muted">Budget {settings?.budget_spent_usd || "…"} / {settings?.budget_ceiling_usd || "…"} USD</p>
         </Panel>

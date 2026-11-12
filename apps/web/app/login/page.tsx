@@ -6,14 +6,16 @@ import { API_URL } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("founder@yes-sales.test");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [localHint, setLocalHint] = useState(false);
 
   useEffect(() => {
     const host = window.location.hostname;
-    setLocalHint(host === "localhost" || host === "127.0.0.1");
+    const local = host === "localhost" || host === "127.0.0.1";
+    setLocalHint(local);
+    if (local) setEmail("founder@yes-sales.test");
   }, []);
 
   async function onSubmit(event: FormEvent) {

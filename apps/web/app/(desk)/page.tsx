@@ -79,10 +79,10 @@ export default function CommandPage() {
           <p>App outbound is {data ? (data.outbound_paused ? "paused" : "running") : "…"}. The outbound switch blocks email and callbacks from this app.</p>
           <p>App jobs is {data ? (data.jobs_paused ? "paused" : "running") : "…"}. The jobs switch stops this app from running queued tasks.</p>
           <p>
-            Grok model: {integrations.grok_connected ? "connected" : "not connected"}.{" "}
+            Grok model: {integrations.grok_connected ? "key saved, not verified" : "not configured"}.{" "}
             {integrations.grok_connected
-              ? "Pausing app jobs does not stop Grok or control Grok credits."
-              : "Add XAI_API_KEY in .env and restart the API to connect the model. A bot file can still be pasted on Grok files."}
+              ? "A saved key is not a completed model call. Pausing app jobs does not stop Grok or control Grok credits."
+              : "Add XAI_API_KEY in .env and restart the API to save a key. A bot file can still be pasted on Grok files."}
           </p>
         </div>
       </Panel>

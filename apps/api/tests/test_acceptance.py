@@ -955,7 +955,8 @@ def test_grok_bot_post_stays_closed_without_a_token_and_a_key_marks_the_model(cl
     get_settings.cache_clear()
     connected = integration_status()
     assert connected["grok_connected"] is True
-    assert connected["grok_bot"] == "live"
+    assert connected["grok_bot"] == "configured_unverified"
+    assert connected["llm"] == "configured_unverified"
     assert connected["grok_credit_control"] == "none"
     get_settings.cache_clear()
 
@@ -1132,18 +1133,31 @@ def test_routes_require_a_session_or_a_named_token() -> None:
     assert open_routes == []
 
 
-def test_production_secret_guard_stays_off_and_refuses_local_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_public_deployment_refuses_local_secrets_and_limits_login(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     from app.config import enforce_production_secrets, get_settings
+    from app.security import clear_login_failures
 
     get_settings.cache_clear()
-    assert get_settings().production_secret_guard is False
+    assert get_settings().is_local_runtime is True
     enforce_production_secrets()
-    monkeypatch.setenv("PRODUCTION_SECRET_GUARD", "true")
-    get_settings.cache_clear()
-    with pytest.raises(RuntimeError, match="production_secret_guard"):
-        enforce_production_secrets()
+    closed = client.post("/messages/send", json={"contact_id": str(uuid.uuid4()), "body": "hello"})
+    assert closed.status_code == 401
+    monkeypatch.setenv("YES_SALES_ENV", "production")
     monkeypatch.setenv("PRODUCTION_SECRET_GUARD", "false")
     get_settings.cache_clear()
+    with pytest.raises(RuntimeError, match="insecure_deployment"):
+        enforce_production_secrets()
+    try:
+        for _ in range(8):
+            failed = client.post("/auth/login", json={"email": "founder@yes-sales.test", "password": "wrong-password"})
+            assert failed.status_code == 401, failed.text
+        limited = client.post("/auth/login", json={"email": "founder@yes-sales.test", "password": "wrong-password"})
+        assert limited.status_code == 429
+        assert limited.json()["error"]["code"] == "login_limited"
+    finally:
+        clear_login_failures()
+        monkeypatch.setenv("YES_SALES_ENV", "test")
+        get_settings.cache_clear()
 
 
 def test_sales_floor_files_a_source_and_does_not_send_or_invent(client: TestClient) -> None:

@@ -318,22 +318,22 @@ def dashboard(session: Session) -> dict:
 def integration_status() -> dict:
     settings = get_settings()
     if settings.email_live:
-        email = "live"
+        email = "configured_unverified"
     elif settings.outbound_enabled:
         email = "not_configured"
     else:
         email = "mock"
     return {
         "email": email,
-        "voice": "configured_unverified" if settings.voice_mode == "live" else "mock",
+        "voice": settings.voice_mode,
         "live_call_verified": False,
         "llm": settings.llm_mode,
         "whatsapp": "not_configured",
-        "grok_bot": "live" if settings.xai_api_key else "not_configured",
+        "grok_bot": "configured_unverified" if settings.xai_api_key else "not_configured",
         "grok_connected": bool(settings.xai_api_key),
         "grok_bot_ingest": "ready" if settings.grok_bot_token.strip() else "not_configured",
         "grok_credit_control": "none",
-        "database": "live",
+        "database": "postgres",
         "outbound_enabled": settings.outbound_enabled,
     }
 
@@ -419,7 +419,7 @@ def request_outbound_call(session: Session, actor: User, data) -> Call:
     if settings_row(session).budget_ceiling_usd <= spent_usd(session):
         audit_committed(actor, "call.blocked", "contact", contact.id, {"reason": "budget_exceeded"})
         raise DomainError(409, "budget_exceeded", "Provider budget ceiling is already reached. No call was placed.")
-    if settings.voice_mode != "live":
+    if not settings.voice_configured:
         summary = "Twilio or xAI realtime credentials are not configured. No call was placed."
         status = "blocked"
         action = "call.not_configured"
@@ -463,7 +463,7 @@ def log_gateway_call(session: Session, payload: dict) -> Call:
     mode = payload.get("provider_mode", "mock")
     if mode not in {"live", "mock", "not_configured"}:
         mode = "mock"
-    if mode == "live" and not (payload.get("model_socket_opened") and get_settings().voice_mode == "live"):
+    if mode == "live" and not (payload.get("model_socket_opened") and get_settings().voice_configured):
         mode = "not_configured"
     call = Call(
         company_id=None if not payload.get("company_id") else uuid.UUID(str(payload["company_id"])),

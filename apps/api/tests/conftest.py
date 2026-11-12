@@ -20,6 +20,7 @@ os.environ["SMTP_FROM"] = ""
 os.environ["TWILIO_AUTH_TOKEN"] = ""
 os.environ["AUTO_MIGRATE"] = "true"
 os.environ["CORS_ORIGINS"] = "http://localhost:3000"
+os.environ["YES_SALES_ENV"] = "test"
 
 from app.config import get_settings
 from app.db import admin_sessionmaker, apply_migrations, reset_engines

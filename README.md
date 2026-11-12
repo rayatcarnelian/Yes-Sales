@@ -15,7 +15,7 @@ apps/web:  npm run dev -- --port 3000
 
 Open http://localhost:3000 and sign in with the local founder shown on the login page.
 
-`PRODUCTION_SECRET_GUARD` stays false on this machine. Turn it on only after every local password has been replaced.
+`.env` must set `YES_SALES_ENV=local` on this machine. A process without that setting is treated as production and will not start on the built-in passwords.
 
 ## Tests
 

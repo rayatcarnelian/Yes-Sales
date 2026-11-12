@@ -151,7 +151,7 @@ def _research(
     company_id: uuid.UUID | None,
     source_url: str,
 ) -> dict:
-    seat = {"seat": "research", "agent": agent}
+    seat: dict[str, object] = {"seat": "research", "agent": agent}
     text = excerpt.strip()
     if company_id is None:
         seat["status"] = "waiting"

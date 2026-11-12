@@ -39,6 +39,16 @@ def create_app() -> FastAPI:
             content={"error": {"code": exc.code, "message": exc.message, "details": exc.details}},
         )
 
+    @app.middleware("http")
+    async def security_headers(request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["X-Frame-Options"] = "DENY"
+        if get_settings().environment == "production":
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        return response
+
     app.include_router(router)
     return app
 

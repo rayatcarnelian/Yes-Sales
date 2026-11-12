@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import os
+import time
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -12,6 +13,11 @@ from app.config import get_settings
 from app.errors import DomainError
 
 PBKDF2_ROUNDS = 200_000
+# Not an account password. Used so a missing user takes the same verify path.
+DUMMY_PASSWORD_HASH = "pbkdf2_sha256$200000$a0222d55d1faa9354d9a9939cbe21b3c$18509254602ec2f763e1315a5652654485237caaecf9b52d47764252b6a8708c"
+_LOGIN_FAILURES: dict[str, list[float]] = {}
+LOGIN_WINDOW_SECONDS = 900
+LOGIN_FAILURE_LIMIT = 8
 
 
 def hash_password(password: str, salt: bytes | None = None) -> str:
@@ -72,11 +78,18 @@ def sign_webhook(body: bytes) -> str:
     return hmac.new(secret, body, hashlib.sha256).hexdigest()
 
 
-def webhook_signature_valid(body: bytes, signature: str | None) -> bool:
-    if not signature:
+def secret_matches(supplied: str | None, expected: str | None) -> bool:
+    if not supplied or not expected:
         return False
-    expected = sign_webhook(body)
-    return hmac.compare_digest(expected, signature.strip())
+    left = supplied.strip()
+    right = expected.strip()
+    if len(left) != len(right):
+        return False
+    return hmac.compare_digest(left, right)
+
+
+def webhook_signature_valid(body: bytes, signature: str | None) -> bool:
+    return secret_matches(signature, sign_webhook(body))
 
 
 def twilio_signature_valid(url: str, params: dict[str, str], signature: str | None) -> bool:
@@ -88,7 +101,26 @@ def twilio_signature_valid(url: str, params: dict[str, str], signature: str | No
     import base64
 
     expected = base64.b64encode(digest).decode()
-    return hmac.compare_digest(expected, signature)
+    return secret_matches(signature, expected)
+
+
+def login_is_limited(bucket: str, *, now: float | None = None) -> bool:
+    moment = time.time() if now is None else now
+    recent = [stamp for stamp in _LOGIN_FAILURES.get(bucket, []) if moment - stamp < LOGIN_WINDOW_SECONDS]
+    _LOGIN_FAILURES[bucket] = recent
+    return len(recent) >= LOGIN_FAILURE_LIMIT
+
+
+def record_login_failure(bucket: str, *, now: float | None = None) -> None:
+    moment = time.time() if now is None else now
+    _LOGIN_FAILURES.setdefault(bucket, []).append(moment)
+
+
+def clear_login_failures(bucket: str | None = None) -> None:
+    if bucket is None:
+        _LOGIN_FAILURES.clear()
+        return
+    _LOGIN_FAILURES.pop(bucket, None)
 
 
 def load_user(session: Session, user_id: str):
