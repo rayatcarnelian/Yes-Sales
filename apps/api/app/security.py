@@ -18,6 +18,7 @@ DUMMY_PASSWORD_HASH = "pbkdf2_sha256$200000$a0222d55d1faa9354d9a9939cbe21b3c$185
 _LOGIN_FAILURES: dict[str, list[float]] = {}
 LOGIN_WINDOW_SECONDS = 900
 LOGIN_FAILURE_LIMIT = 8
+LOGIN_BUCKET_LIMIT = 256
 
 
 def hash_password(password: str, salt: bytes | None = None) -> str:
@@ -104,15 +105,30 @@ def twilio_signature_valid(url: str, params: dict[str, str], signature: str | No
     return secret_matches(signature, expected)
 
 
+def _prune_login_failures(moment: float) -> None:
+    stale = []
+    for bucket, stamps in _LOGIN_FAILURES.items():
+        recent = [stamp for stamp in stamps if moment - stamp < LOGIN_WINDOW_SECONDS]
+        if recent:
+            _LOGIN_FAILURES[bucket] = recent[-LOGIN_FAILURE_LIMIT:]
+        else:
+            stale.append(bucket)
+    for bucket in stale:
+        _LOGIN_FAILURES.pop(bucket, None)
+
+
 def login_is_limited(bucket: str, *, now: float | None = None) -> bool:
     moment = time.time() if now is None else now
-    recent = [stamp for stamp in _LOGIN_FAILURES.get(bucket, []) if moment - stamp < LOGIN_WINDOW_SECONDS]
-    _LOGIN_FAILURES[bucket] = recent
-    return len(recent) >= LOGIN_FAILURE_LIMIT
+    _prune_login_failures(moment)
+    return len(_LOGIN_FAILURES.get(bucket, [])) >= LOGIN_FAILURE_LIMIT
 
 
 def record_login_failure(bucket: str, *, now: float | None = None) -> None:
     moment = time.time() if now is None else now
+    _prune_login_failures(moment)
+    if bucket not in _LOGIN_FAILURES and len(_LOGIN_FAILURES) >= LOGIN_BUCKET_LIMIT:
+        oldest = next(iter(_LOGIN_FAILURES))
+        _LOGIN_FAILURES.pop(oldest, None)
     _LOGIN_FAILURES.setdefault(bucket, []).append(moment)
 
 
@@ -121,6 +137,10 @@ def clear_login_failures(bucket: str | None = None) -> None:
         _LOGIN_FAILURES.clear()
         return
     _LOGIN_FAILURES.pop(bucket, None)
+
+
+def login_bucket_count() -> int:
+    return len(_LOGIN_FAILURES)
 
 
 def load_user(session: Session, user_id: str):

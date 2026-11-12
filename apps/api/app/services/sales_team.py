@@ -101,7 +101,7 @@ def run_play(
         raise DomainError(422, "country_mismatch", "That research seat does not own this country.")
     research = _research(session, actor, agent, excerpt, company_id, source_url)
     compliance = _compliance(excerpt)
-    sdr = _sdr(brief)
+    sdr = _sdr(session, brief)
     deal = _deal_desk()
     manager = _manager(session, research, sdr)
     result = {
@@ -216,8 +216,8 @@ def _compliance(excerpt: str) -> dict:
     }
 
 
-def _sdr(brief: str) -> dict:
-    classified = classify_message(brief)
+def _sdr(session: Session, brief: str) -> dict:
+    classified = classify_message(brief, session)
     return {
         "seat": "sdr",
         "agent": "alex",

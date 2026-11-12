@@ -308,9 +308,9 @@ def contact_context(contact_id: uuid.UUID, session: Session = Depends(get_db)) -
 
 
 @router.post("/alex/classify")
-def classify_note(body: ClassifyIn, user: User = Depends(get_current_user)) -> dict:
+def classify_note(body: ClassifyIn, session: Session = Depends(get_db), user: User = Depends(get_current_user)) -> dict:
     del user
-    return alex.classify_message(body.body)
+    return alex.classify_message(body.body, session)
 
 
 @router.post("/alex/drafts", status_code=201)

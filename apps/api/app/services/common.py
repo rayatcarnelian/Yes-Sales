@@ -100,6 +100,16 @@ def spent_usd(session: Session) -> Decimal:
     return Decimal(value or 0)
 
 
+MODEL_CALL_USD = Decimal("0.01")
+
+
+def require_model_budget(session: Session, cost_usd: Decimal = MODEL_CALL_USD) -> None:
+    """Stop a paid model call before it is sent when the ceiling cannot cover it."""
+    current = settings_row(session)
+    if spent_usd(session) + Decimal(cost_usd) > Decimal(current.budget_ceiling_usd):
+        raise DomainError(409, "budget_exceeded", "Provider budget ceiling would be exceeded.")
+
+
 def record_usage(
     session: Session,
     provider: str,

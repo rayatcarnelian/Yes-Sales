@@ -1160,6 +1160,160 @@ def test_public_deployment_refuses_local_secrets_and_limits_login(client: TestCl
         get_settings.cache_clear()
 
 
+def test_model_extract_persists_live_usage_and_stops_at_the_ceiling(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.config import get_settings
+
+    headers = auth_header(client)
+    monkeypatch.setenv("XAI_API_KEY", "test-key")
+    get_settings.cache_clear()
+    company = client.post(
+        "/companies",
+        headers=headers,
+        json={"legal_name": "TEST Model Mill", "country": "MY", "role": "supplier", "category": "Knitwear", "is_test": True},
+    )
+    assert company.status_code == 201, company.text
+    company_id = company.json()["id"]
+    excerpt = "Company: TEST Model Mill\nCountry: MY\nCategory: Knitwear"
+    created = client.post(
+        "/research/sources",
+        headers=headers,
+        json={
+            "company_id": company_id,
+            "source_url": "https://test-model-mill.example/about",
+            "excerpt": excerpt,
+            "provider": "xai",
+        },
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["provider_mode"] == "not_configured"
+    integrations = client.get("/integrations", headers=headers).json()
+    assert integrations["llm"] == "configured_unverified"
+    assert integrations["grok_bot"] == "configured_unverified"
+
+    class StubClient:
+        def __init__(self, timeout: float = 60) -> None:
+            self.timeout = timeout
+
+        def post(self, url: str, headers: dict | None = None, **kwargs: object) -> httpx.Response:
+            del headers
+            assert "input" in kwargs["json"]
+            payload = {"company": "TEST Model Mill", "website": None, "email": None, "phone": None, "category": "Knitwear", "country": "MY"}
+            body = {"output": [{"type": "message", "content": [{"type": "output_text", "text": json.dumps(payload)}]}]}
+            return httpx.Response(200, json=body, request=httpx.Request("POST", url))
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr("app.services.research.httpx.Client", StubClient)
+    extracted = client.post("/research/extract", headers=headers, json={"source_id": created.json()["id"]})
+    assert extracted.status_code == 200, extracted.text
+    assert extracted.json()["provider_mode"] == "live"
+    with admin_sessionmaker()() as session:
+        usage = session.execute(
+            text("SELECT mode, operation, cost_usd FROM provider_usage WHERE operation = 'research.extract'")
+        ).all()
+    assert len(usage) == 1
+    assert usage[0].mode == "live"
+    assert Decimal(usage[0].cost_usd) == Decimal("0.01")
+    ceiling = client.post("/settings/budget", headers=headers, json={"budget_ceiling_usd": "0"})
+    assert ceiling.status_code == 200, ceiling.text
+    second = client.post(
+        "/research/sources",
+        headers=headers,
+        json={
+            "company_id": company_id,
+            "source_url": "https://test-model-mill.example/again",
+            "excerpt": excerpt,
+            "provider": "xai",
+        },
+    )
+    assert second.status_code == 201, second.text
+    blocked = client.post("/research/extract", headers=headers, json={"source_id": second.json()["id"]})
+    assert blocked.status_code == 409
+    assert blocked.json()["error"]["code"] == "budget_exceeded"
+    stored = client.get(f"/companies/{company_id}", headers=headers).json()
+    by_id = {item["id"]: item["provider_mode"] for item in stored["sources"]}
+    assert by_id[created.json()["id"]] == "live"
+    assert by_id[second.json()["id"]] == "not_configured"
+    with admin_sessionmaker()() as session:
+        count = session.execute(text("SELECT count(*) FROM provider_usage WHERE operation = 'research.extract'")).scalar_one()
+    assert count == 1
+    get_settings.cache_clear()
+
+
+def test_deploy_files_keep_local_secrets_off_the_public_sample(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.config import enforce_production_secrets, get_settings, repo_root
+
+    root = repo_root()
+    example = (root / ".env.example").read_text(encoding="utf-8")
+    local = (root / ".env.local.example").read_text(encoding="utf-8")
+    compose = (root / "docker-compose.yml").read_text(encoding="utf-8")
+    assert "YES_SALES_ENV=production" in example
+    assert "YES_SALES_ENV=local" not in example
+    assert "YES_SALES_ENV=local" in local
+    published = re.findall(r'^\s*-\s*"([^"]+)"\s*$', compose, re.M)
+    assert published == ["127.0.0.1:5432:5432", "127.0.0.1:8000:8000", "127.0.0.1:3000:3000", "127.0.0.1:3001:3001"]
+    monkeypatch.setenv("YES_SALES_ENV", "production")
+    monkeypatch.setenv("PRODUCTION_SECRET_GUARD", "false")
+    get_settings.cache_clear()
+    with pytest.raises(RuntimeError, match="insecure_deployment"):
+        enforce_production_secrets()
+    monkeypatch.setenv("YES_SALES_ENV", "production")
+    monkeypatch.setenv("JWT_SECRET", "x" * 40)
+    monkeypatch.setenv("WEBHOOK_SECRET", "y" * 40)
+    monkeypatch.setenv("SCHEDULER_TOKEN", "z" * 40)
+    monkeypatch.setenv("VOICE_GATEWAY_TOKEN", "v" * 40)
+    monkeypatch.setenv("DEV_FOUNDER_PASSWORD", "founder-password-not-the-sample")
+    monkeypatch.setenv("DEV_OPERATOR_PASSWORD", "operator-password-not-the-sample")
+    monkeypatch.setenv("APP_DB_PASSWORD", "app-password-not-the-sample")
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://app:secret@127.0.0.1:5432/yes_sales")
+    monkeypatch.setenv("ADMIN_DATABASE_URL", "postgresql+psycopg://admin:secret@127.0.0.1:5432/yes_sales")
+    monkeypatch.setenv("YES_SALES_PUBLIC_RELEASE", "true")
+    get_settings.cache_clear()
+    with pytest.raises(RuntimeError, match="public_release"):
+        enforce_production_secrets()
+    monkeypatch.setenv("YES_SALES_PUBLIC_RELEASE", "false")
+    monkeypatch.setenv("UVICORN_WORKERS", "2")
+    get_settings.cache_clear()
+    with pytest.raises(RuntimeError, match="worker_count"):
+        enforce_production_secrets()
+    monkeypatch.delenv("UVICORN_WORKERS", raising=False)
+    monkeypatch.setenv("YES_SALES_ENV", "local")
+    monkeypatch.setenv("CORS_ORIGINS", "https://shop.example")
+    get_settings.cache_clear()
+    with pytest.raises(RuntimeError, match="local_runtime"):
+        enforce_production_secrets()
+    monkeypatch.setenv("YES_SALES_ENV", "test")
+    monkeypatch.setenv("CORS_ORIGINS", "http://localhost:3000")
+    get_settings.cache_clear()
+
+
+def test_login_limit_expires_and_stays_bounded() -> None:
+    from app.security import (
+        LOGIN_BUCKET_LIMIT,
+        LOGIN_FAILURE_LIMIT,
+        clear_login_failures,
+        login_bucket_count,
+        login_is_limited,
+        record_login_failure,
+    )
+
+    clear_login_failures()
+    try:
+        bucket = "founder@yes-sales.test|127.0.0.1"
+        for _ in range(LOGIN_FAILURE_LIMIT):
+            record_login_failure(bucket, now=1_000)
+        assert login_is_limited(bucket, now=1_100) is True
+        other = "other@yes-sales.test|127.0.0.1"
+        assert login_is_limited(other, now=1_100) is False
+        assert login_is_limited(bucket, now=1_000 + 901) is False
+        for index in range(LOGIN_BUCKET_LIMIT + 40):
+            record_login_failure(f"noise-{index}@example.com|10.0.0.{index % 20}", now=5_000)
+        assert login_bucket_count() <= LOGIN_BUCKET_LIMIT
+    finally:
+        clear_login_failures()
+
+
 def test_sales_floor_files_a_source_and_does_not_send_or_invent(client: TestClient) -> None:
     headers = auth_header(client)
     before = len(client.get("/companies", headers=headers).json()["companies"])

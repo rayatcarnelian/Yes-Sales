@@ -1,5 +1,7 @@
+import os
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import urlparse
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -49,6 +51,8 @@ class Settings(BaseSettings):
     dev_operator_password: str = "change-me-operator"
     # Public deployment is the default. Local and test must opt in.
     yes_sales_env: str = "production"
+    # Stays false. A process-local login limit is not a public release control.
+    yes_sales_public_release: bool = False
 
     @property
     def cors_origin_list(self) -> list[str]:
@@ -96,14 +100,32 @@ _LOCAL_DEFAULTS = {
 }
 
 
+def _origin_is_loopback(origin: str) -> bool:
+    host = (urlparse(origin).hostname or "").lower()
+    return host in {"localhost", "127.0.0.1", "::1"}
+
+
+def _worker_count() -> int:
+    counts = []
+    for name in ("WEB_CONCURRENCY", "UVICORN_WORKERS"):
+        raw = os.environ.get(name, "").strip()
+        if raw.isdigit():
+            counts.append(int(raw))
+    return max(counts, default=1)
+
+
 def enforce_production_secrets() -> None:
     """Refuse known local secrets unless this process is explicitly local or test.
 
-    PRODUCTION_SECRET_GUARD is not a bypass. A public deployment that forgets
-    YES_SALES_ENV still lands on the production default and stops.
+    Local and test must keep browser origins on loopback. Production cannot
+    opt into a public release while the login limit is stored in one process.
+    PRODUCTION_SECRET_GUARD is not a bypass.
     """
     settings = get_settings()
     if settings.is_local_runtime:
+        public = [origin for origin in settings.cors_origin_list if not _origin_is_loopback(origin)]
+        if public or not settings.cors_origin_list:
+            raise RuntimeError("local_runtime refused a public CORS origin")
         return
     failures: list[str] = []
     for name, default in _LOCAL_DEFAULTS.items():
@@ -118,6 +140,10 @@ def enforce_production_secrets() -> None:
             failures.append(name)
     if "*" in settings.cors_origin_list or not settings.cors_origin_list:
         failures.append("cors_origins")
+    if settings.yes_sales_public_release:
+        failures.append("public_release")
+    if _worker_count() > 1:
+        failures.append("worker_count")
     if failures:
         names = ", ".join(sorted(set(failures)))
         raise RuntimeError(f"insecure_deployment refused local defaults: {names}")

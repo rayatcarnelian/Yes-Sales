@@ -10,7 +10,7 @@ from app.config import get_settings
 from app.errors import DomainError
 from app.models import Company, ResearchSource, User
 from app.serialize import stamp
-from app.services.common import normalize_name, now, record_usage, require
+from app.services.common import MODEL_CALL_USD, normalize_name, now, record_usage, require, require_model_budget
 
 EVIDENCE_KEYS = ("company", "website", "email", "phone", "category", "country")
 
@@ -207,7 +207,8 @@ def record_source(session: Session, actor: User, data) -> ResearchSource:
     elif data.provider in {"manual", "http"}:
         mode = "live"
     else:
-        mode = get_settings().llm_mode
+        # A saved model key is not a completed call. The row stays not_configured until extract.
+        mode = "not_configured"
     source = ResearchSource(
         company_id=company.id,
         source_url=url,
@@ -232,15 +233,16 @@ def extract_source(session: Session, actor: User, source_id, client: httpx.Clien
         raise DomainError(422, "evidence_required", "Extraction without evidence is rejected.")
     settings = get_settings()
     if settings.xai_api_key:
+        require_model_budget(session, MODEL_CALL_USD)
         http = client or httpx.Client(timeout=60)
         close_client = client is None
         try:
             fields = call_xai(source.excerpt, http)
-            record_usage(session, "xai", "model_called", "research.extract", 0)
+            record_usage(session, "xai", "live", "research.extract", MODEL_CALL_USD)
         finally:
             if close_client:
                 http.close()
-        mode = "model_called"
+        mode = "live"
     else:
         fields = parse_evidence(source.excerpt)
         record_usage(session, "evidence-parser", "not_configured", "research.extract", 0)

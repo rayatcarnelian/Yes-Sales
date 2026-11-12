@@ -557,7 +557,7 @@ def _dispatch_tool(session: Session, actor: User, agent: str, tool: str, payload
     if tool == "classify_message":
         from app.services.alex import classify_message
 
-        return classify_message(str(payload.get("body", "")))
+        return classify_message(str(payload.get("body", "")), session)
     if tool in {"send_message", "draft_reply"}:
         from app.services.alex import draft_reply
 
